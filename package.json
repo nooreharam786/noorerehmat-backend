@@ -1,0 +1,13 @@
+{
+  "name": "sacred-journey-system",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "powershell -ExecutionPolicy Bypass -File scripts/dev.ps1",
+    "dev:backend": "npm.cmd --prefix backend run dev",
+    "dev:admin": "npm.cmd --prefix admin run dev",
+    "build": "npm.cmd --prefix backend run build && npm.cmd --prefix admin run build",
+    "start": "npm.cmd --prefix backend start",
+    "install:all": "npm.cmd --prefix backend install && npm.cmd --prefix admin install"
+  }
+}
