@@ -4,7 +4,14 @@ import multer from "multer";
 import { HttpError } from "../utils/http";
 import { galleryUploadDir } from "../utils/upload-paths";
 
-fs.mkdirSync(galleryUploadDir, { recursive: true });
+try {
+  fs.mkdirSync(galleryUploadDir, { recursive: true });
+} catch (error) {
+  // Vercel or read-only filesystem - skip directory creation
+  if (process.env.VERCEL) {
+    console.log("Running on Vercel - using temporary upload directory");
+  }
+}
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, galleryUploadDir),
