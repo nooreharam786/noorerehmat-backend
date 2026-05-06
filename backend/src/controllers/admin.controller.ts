@@ -7,6 +7,7 @@ import { prisma } from "../config/prisma";
 import { asyncHandler, HttpError } from "../utils/http";
 import { paginationSchema } from "../utils/validation";
 import { runLuckyDraw } from "../services/draw.service";
+import { galleryUploadDir, resolveGalleryUpload } from "../utils/upload-paths";
 
 const sortableUsers = new Set(["name", "email", "role", "createdAt"]);
 const sortableApplicants = new Set(["createdAt", "status", "paymentStatus"]);
@@ -221,9 +222,8 @@ async function removeLocalUpload(imageUrl: string, req: Request) {
   if (!imageUrl.startsWith(`${origin}/uploads/gallery/`)) return;
 
   const filename = path.basename(new URL(imageUrl).pathname);
-  const target = path.resolve(process.cwd(), "uploads/gallery", filename);
-  const galleryDir = path.resolve(process.cwd(), "uploads/gallery");
-  if (!target.startsWith(galleryDir)) return;
+  const target = resolveGalleryUpload(filename);
+  if (!target.startsWith(galleryUploadDir)) return;
 
   await fs.unlink(target).catch(() => undefined);
 }

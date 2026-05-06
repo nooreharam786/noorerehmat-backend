@@ -2,12 +2,12 @@ import fs from "fs";
 import path from "path";
 import multer from "multer";
 import { HttpError } from "../utils/http";
+import { galleryUploadDir } from "../utils/upload-paths";
 
-const galleryDir = path.resolve(process.cwd(), "uploads/gallery");
-fs.mkdirSync(galleryDir, { recursive: true });
+fs.mkdirSync(galleryUploadDir, { recursive: true });
 
 const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, galleryDir),
+  destination: (_req, _file, cb) => cb(null, galleryUploadDir),
   filename: (_req, file, cb) => {
     const extension = path.extname(file.originalname).toLowerCase();
     const name = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}${extension}`;
