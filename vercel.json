@@ -3,14 +3,14 @@
   "buildCommand": "cd backend && npm run build && npm run prisma:generate",
   "builds": [
     {
-      "src": "backend/package.json",
+      "src": "api/index.ts",
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "backend/dist/server.js"
+      "dest": "api/index.ts"
     }
   ]
 }
