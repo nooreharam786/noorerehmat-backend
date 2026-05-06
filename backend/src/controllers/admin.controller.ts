@@ -1,13 +1,10 @@
 import { ApplicationStatus, PaymentStatus, Role } from "@prisma/client";
 import type { Request } from "express";
-import fs from "fs/promises";
-import path from "path";
 import { z } from "zod";
 import { prisma } from "../config/prisma";
 import { asyncHandler, HttpError } from "../utils/http";
 import { paginationSchema } from "../utils/validation";
 import { runLuckyDraw } from "../services/draw.service";
-import { galleryUploadDir, resolveGalleryUpload } from "../utils/upload-paths";
 
 const sortableUsers = new Set(["name", "email", "role", "createdAt"]);
 const sortableApplicants = new Set(["createdAt", "status", "paymentStatus"]);
@@ -54,13 +51,21 @@ export const removeGalleryImageSchema = z.object({
 });
 
 export const stats = asyncHandler(async (_req, res) => {
-  const [totalUsers, totalApplicants, paidUsers, selectedUsers, lastDraw] = await Promise.all([
+  const [totalUsers, totalApplicants, paidApplications, selectedApplications, lastDraw] = await Promise.all([
     prisma.user.count(),
     prisma.application.count(),
-    prisma.application.count({ where: { paymentStatus: PaymentStatus.paid } }),
-    prisma.application.count({ where: { status: ApplicationStatus.selected } }),
+    prisma.application.findMany({
+      where: { paymentStatus: PaymentStatus.paid },
+      select: { persons: true }
+    }),
+    prisma.application.findMany({
+      where: { status: ApplicationStatus.selected },
+      select: { persons: true }
+    }),
     prisma.drawResult.findFirst({ orderBy: { createdAt: "desc" } })
   ]);
+  const paidUsers = paidApplications.reduce((total, item) => total + item.persons, 0);
+  const selectedUsers = selectedApplications.reduce((total, item) => total + item.persons, 0);
 
   res.json({ success: true, data: { totalUsers, totalApplicants, paidUsers, selectedUsers, lastDraw } });
 });
@@ -112,7 +117,10 @@ export const listApplicants = asyncHandler(async (req, res) => {
   const [items, total] = await Promise.all([
     prisma.application.findMany({
       where,
-      include: { user: { select: { name: true, email: true } } },
+      include: {
+        user: { select: { name: true, email: true } },
+        travellers: { orderBy: { createdAt: "asc" } }
+      },
       orderBy: { [sortBy]: sortOrder },
       skip: (page - 1) * limit,
       take: limit
@@ -203,11 +211,25 @@ export const updateSettings = asyncHandler(async (req, res) => {
   res.json({ success: true, message: "Settings updated" });
 });
 
-function uploadedFileUrls(req: Request) {
+async function uploadedFileUrls(req: Request) {
   const files = (req.files ?? []) as Express.Multer.File[];
   const origin = `${req.protocol}://${req.get("host")}`;
 
-  return files.map((file) => `${origin}/uploads/gallery/${file.filename}`);
+  const images = await Promise.all(
+    files.map((file) =>
+      prisma.galleryImage.create({
+        data: {
+          filename: file.originalname,
+          contentType: file.mimetype,
+          data: file.buffer,
+          size: file.size
+        },
+        select: { id: true }
+      })
+    )
+  );
+
+  return images.map((image) => `${origin}/uploads/gallery/${image.id}`);
 }
 
 function splitGalleryUrls(value?: string) {
@@ -217,19 +239,18 @@ function splitGalleryUrls(value?: string) {
     .filter(Boolean);
 }
 
-async function removeLocalUpload(imageUrl: string, req: Request) {
+async function removeStoredUpload(imageUrl: string, req: Request) {
   const origin = `${req.protocol}://${req.get("host")}`;
   if (!imageUrl.startsWith(`${origin}/uploads/gallery/`)) return;
 
-  const filename = path.basename(new URL(imageUrl).pathname);
-  const target = resolveGalleryUpload(filename);
-  if (!target.startsWith(galleryUploadDir)) return;
+  const id = new URL(imageUrl).pathname.split("/").pop();
+  if (!id) return;
 
-  await fs.unlink(target).catch(() => undefined);
+  await prisma.galleryImage.delete({ where: { id } }).catch(() => undefined);
 }
 
 export const uploadGalleryImages = asyncHandler(async (req, res) => {
-  const nextUrls = uploadedFileUrls(req);
+  const nextUrls = await uploadedFileUrls(req);
   if (nextUrls.length === 0) {
     throw new HttpError(422, "Please choose at least one image to upload");
   }
@@ -257,7 +278,7 @@ export const removeGalleryImage = asyncHandler(async (req, res) => {
     update: { value },
     create: { key: galleryKey, value }
   });
-  await removeLocalUpload(req.body.imageUrl, req);
+  await removeStoredUpload(req.body.imageUrl, req);
 
   res.json({ success: true, data: { galleryImageUrls: value } });
 });

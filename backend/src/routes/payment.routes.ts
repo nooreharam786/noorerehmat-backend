@@ -5,5 +5,5 @@ import { validate } from "../middleware/validate";
 
 export const paymentRoutes = Router();
 
-paymentRoutes.get("/imb-link", getPaymentLink);
+paymentRoutes.get("/imb-link", authenticate, getPaymentLink);
 paymentRoutes.post("/callback", authenticate, requireAdmin, validate(paymentCallbackSchema), paymentCallback);

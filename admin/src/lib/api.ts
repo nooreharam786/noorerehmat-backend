@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
+const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api").replace(/\/+$/, "");
 
 type ApiResponse<T> = {
   success: boolean;
@@ -30,7 +30,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetch(`${API_URL}${path.startsWith("/") ? path : `/${path}`}`, {
     ...init,
     headers,
     cache: "no-store"

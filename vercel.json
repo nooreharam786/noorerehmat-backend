@@ -1,7 +1,7 @@
 {
   "version": 2,
   "installCommand": "npm install",
-  "buildCommand": "npm --workspace backend run prisma:generate && npm --workspace backend run build",
+  "buildCommand": "npm --workspace backend run prisma:deploy && npm --workspace backend run prisma:generate && npm --workspace backend run build",
   "builds": [
     {
       "src": "api/index.ts",

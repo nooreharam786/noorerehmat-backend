@@ -21,6 +21,11 @@ export type Applicant = {
   entryFee: number;
   status: ApplicationStatus;
   paymentStatus: PaymentStatus;
+  travellers: {
+    id: string;
+    fullName: string;
+    phone: string;
+  }[];
   createdAt: string;
   user: {
     name: string;

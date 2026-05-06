@@ -45,13 +45,28 @@ export const indianStates = [
 ];
 
 const stateCodes = new Set(indianStates.map((state) => state.code));
+const maxTravellersPerCover = 5;
+
+const travellerSchema = z.object({
+  fullName: z.string().trim().min(2).max(120),
+  phone: z.string().trim().min(7).max(20)
+});
 
 export const applySchema = z.object({
   body: z.object({
     phone: z.string().trim().min(7).max(20),
     stateCode: z.string().trim().toUpperCase().refine((value) => stateCodes.has(value), "Select a valid state"),
     city: z.string().trim().min(2).max(80),
-    persons: z.coerce.number().int().min(1).max(20)
+    persons: z.coerce.number().int().min(1).max(maxTravellersPerCover),
+    travellers: z.array(travellerSchema).min(1).max(maxTravellersPerCover)
+  }).superRefine((body, ctx) => {
+    if (body.travellers.length !== body.persons) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["travellers"],
+        message: "Traveller details must match the number of persons"
+      });
+    }
   })
 });
 
@@ -74,51 +89,60 @@ export const apply = asyncHandler(async (req, res) => {
   }
 
   const coverId = existing && existing.stateCode === req.body.stateCode ? existing.coverId : await nextCoverId(req.body.stateCode);
-  const application = await prisma.application.upsert({
-    where: { userId: req.user!.id },
-    update: {
-      coverId,
-      phone: req.body.phone,
-      stateCode: state.code,
-      stateName: state.name,
-      city: req.body.city,
-      persons: req.body.persons,
-      entryFee: req.body.persons * entryFeePerPerson
-    },
-    create: {
-      userId: req.user!.id,
-      coverId,
-      phone: req.body.phone,
-      stateCode: state.code,
-      stateName: state.name,
-      city: req.body.city,
-      persons: req.body.persons,
-      entryFee: req.body.persons * entryFeePerPerson
-    }
+  const application = await prisma.$transaction(async (tx) => {
+    const saved = await tx.application.upsert({
+      where: { userId: req.user!.id },
+      update: {
+        coverId,
+        phone: req.body.phone,
+        stateCode: state.code,
+        stateName: state.name,
+        city: req.body.city,
+        persons: req.body.persons,
+        entryFee: req.body.persons * entryFeePerPerson
+      },
+      create: {
+        userId: req.user!.id,
+        coverId,
+        phone: req.body.phone,
+        stateCode: state.code,
+        stateName: state.name,
+        city: req.body.city,
+        persons: req.body.persons,
+        entryFee: req.body.persons * entryFeePerPerson
+      }
+    });
+
+    await tx.applicantPerson.deleteMany({ where: { applicationId: saved.id } });
+    await tx.applicantPerson.createMany({
+      data: req.body.travellers.map((traveller: { fullName: string; phone: string }) => ({
+        applicationId: saved.id,
+        fullName: traveller.fullName,
+        phone: traveller.phone
+      }))
+    });
+
+    return tx.application.findUniqueOrThrow({
+      where: { id: saved.id },
+      include: { travellers: { orderBy: { createdAt: "asc" } } }
+    });
   });
 
   res.status(201).json({ success: true, data: application });
 });
 
 export const myApplication = asyncHandler(async (req, res) => {
-  const application = await prisma.application.findUnique({ where: { userId: req.user!.id } });
+  const application = await prisma.application.findUnique({
+    where: { userId: req.user!.id },
+    include: { travellers: { orderBy: { createdAt: "asc" } } }
+  });
   res.json({ success: true, data: application });
 });
 
 export const states = asyncHandler(async (_req, res) => {
-  res.json({ success: true, data: { states: indianStates, entryFeePerPerson } });
+  res.json({ success: true, data: { states: indianStates, entryFeePerPerson, maxTravellersPerCover } });
 });
 
 export const markPaid = asyncHandler(async (req, res) => {
-  const application = await prisma.application.findUnique({ where: { userId: req.user!.id } });
-  if (!application) {
-    throw new HttpError(404, "Apply for the lucky draw before marking payment");
-  }
-
-  const updated = await prisma.application.update({
-    where: { id: application.id },
-    data: { paymentStatus: PaymentStatus.paid }
-  });
-
-  res.json({ success: true, data: updated });
+  throw new HttpError(403, "Payment status can only be updated after gateway/admin verification");
 });

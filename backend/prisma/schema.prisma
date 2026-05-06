@@ -54,12 +54,25 @@ model Application {
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
   user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  travellers     ApplicantPerson[]
 
   @@index([status])
   @@index([paymentStatus])
   @@index([stateCode])
   @@index([coverId])
   @@index([createdAt])
+}
+
+model ApplicantPerson {
+  id            String      @id @default(cuid())
+  applicationId String
+  fullName      String
+  phone         String
+  createdAt     DateTime    @default(now())
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@index([phone])
 }
 
 model DrawResult {
@@ -87,4 +100,15 @@ model Setting {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+model GalleryImage {
+  id          String   @id @default(cuid())
+  filename    String
+  contentType String
+  data        Bytes
+  size        Int
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
 }

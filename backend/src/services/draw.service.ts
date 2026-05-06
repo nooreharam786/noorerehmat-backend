@@ -24,18 +24,33 @@ export async function runLuckyDraw(input: DrawInput) {
   return prisma.$transaction(async (tx) => {
     const paidApplicants = await tx.application.findMany({
       where: { paymentStatus: PaymentStatus.paid },
-      select: { id: true }
+      select: { id: true, persons: true }
     });
 
     if (paidApplicants.length === 0) {
       throw new HttpError(400, "No paid applicants are available for the draw");
     }
 
+    const totalPaidPersons = paidApplicants.reduce((total, applicant) => total + applicant.persons, 0);
     const calculatedCount = usePercentage
-      ? Math.ceil(paidApplicants.length * ((input.percentage ?? 1.25) / 100))
+      ? Math.ceil(totalPaidPersons * ((input.percentage ?? 1.25) / 100))
       : requestedFixedCount;
-    const selectedCount = Math.min(calculatedCount, paidApplicants.length);
-    const selectedIds = new Set(shuffle(paidApplicants).slice(0, selectedCount).map((item) => item.id));
+    const seatLimit = Math.min(calculatedCount, totalPaidPersons);
+    const tickets = paidApplicants.flatMap((applicant) => Array.from({ length: applicant.persons }, () => applicant.id));
+    const selectedIds = new Set<string>();
+    let selectedPersonCount = 0;
+
+    for (const applicationId of shuffle(tickets)) {
+      if (selectedIds.has(applicationId)) continue;
+
+      const applicant = paidApplicants.find((item) => item.id === applicationId);
+      if (!applicant) continue;
+      if (selectedPersonCount > 0 && selectedPersonCount + applicant.persons > seatLimit) continue;
+
+      selectedIds.add(applicationId);
+      selectedPersonCount += applicant.persons;
+      if (selectedPersonCount >= seatLimit) break;
+    }
 
     await tx.application.updateMany({
       where: { paymentStatus: PaymentStatus.paid },
@@ -49,8 +64,8 @@ export async function runLuckyDraw(input: DrawInput) {
 
     const result = await tx.drawResult.create({
       data: {
-        totalUsers: paidApplicants.length,
-        selectedCount,
+        totalUsers: totalPaidPersons,
+        selectedCount: selectedPersonCount,
         percentage: usePercentage ? new Prisma.Decimal(input.percentage ?? 1.25).toNumber() : null
       }
     });

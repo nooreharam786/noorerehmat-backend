@@ -279,6 +279,7 @@ export default function AdminDashboard() {
       Cover: item.coverId,
       State: item.stateName,
       Persons: item.persons,
+      Travellers: item.travellers.map((traveller) => `${traveller.fullName} (${traveller.phone})`).join("; "),
       Fee: item.entryFee,
       Status: item.status,
       Payment: item.paymentStatus,
@@ -369,8 +370,8 @@ export default function AdminDashboard() {
                   <h3 className="text-xl font-semibold text-emerald-deep">Last Draw Result</h3>
                   {stats?.lastDraw ? (
                     <div className="mt-4 grid gap-4 md:grid-cols-3">
-                      <p className="rounded-lg bg-cream p-4 text-sm">Paid pool: <strong>{stats.lastDraw.totalUsers}</strong></p>
-                      <p className="rounded-lg bg-cream p-4 text-sm">Selected: <strong>{stats.lastDraw.selectedCount}</strong></p>
+                      <p className="rounded-lg bg-cream p-4 text-sm">Paid seats: <strong>{stats.lastDraw.totalUsers}</strong></p>
+                      <p className="rounded-lg bg-cream p-4 text-sm">Selected seats: <strong>{stats.lastDraw.selectedCount}</strong></p>
                       <p className="rounded-lg bg-cream p-4 text-sm">Run at: <strong>{formatDate(stats.lastDraw.createdAt)}</strong></p>
                     </div>
                   ) : (
@@ -457,6 +458,7 @@ export default function AdminDashboard() {
                       <th className="px-4 py-3">Phone</th>
                       <th className="px-4 py-3">State</th>
                       <th className="px-4 py-3">Persons</th>
+                      <th className="px-4 py-3">Travellers</th>
                       <th className="px-4 py-3">Fee</th>
                       <th className="px-4 py-3">Status</th>
                       <th className="px-4 py-3">Payment Status</th>
@@ -464,7 +466,7 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {!applicants ? <SkeletonRows cols={10} /> : applicants.items.map((item) => (
+                    {!applicants ? <SkeletonRows cols={11} /> : applicants.items.map((item) => (
                       <tr key={item.id} className="border-t border-stone-100">
                         <td className="px-4 py-4 font-mono text-sm font-semibold text-emerald-deep">{item.coverId}</td>
                         <td className="px-4 py-4 font-semibold text-stone-800">{item.user.name}</td>
@@ -472,6 +474,13 @@ export default function AdminDashboard() {
                         <td className="px-4 py-4 text-stone-600">{item.phone}</td>
                         <td className="px-4 py-4 text-stone-600">{item.stateName}</td>
                         <td className="px-4 py-4 text-stone-600">{item.persons}</td>
+                        <td className="px-4 py-4 text-stone-600">
+                          <div className="max-w-xs space-y-1">
+                            {item.travellers.map((traveller) => (
+                              <p key={traveller.id}>{traveller.fullName} <span className="text-stone-400">({traveller.phone})</span></p>
+                            ))}
+                          </div>
+                        </td>
                         <td className="px-4 py-4 font-semibold text-stone-700">Rs.{item.entryFee.toLocaleString("en-IN")}</td>
                         <td className="px-4 py-4"><Badge value={item.status} /></td>
                         <td className="px-4 py-4"><Badge value={item.paymentStatus} /></td>
@@ -493,7 +502,7 @@ export default function AdminDashboard() {
                     </div>
                     <div>
                       <h3 className="text-xl font-semibold text-emerald-deep">Run Lucky Draw</h3>
-                      <p className="text-sm text-stone-500">Paid applicants only are included in the draw pool.</p>
+                      <p className="text-sm text-stone-500">Paid traveller seats only are included in the draw pool.</p>
                     </div>
                   </div>
                   <div className="grid gap-4 md:grid-cols-2">
@@ -517,7 +526,7 @@ export default function AdminDashboard() {
                   <div className="mt-4 space-y-3">
                     {drawHistory.length === 0 ? <p className="text-sm text-stone-500">No results yet.</p> : drawHistory.map((result) => (
                       <div key={result.id} className="rounded-lg bg-cream p-4 text-sm">
-                        <p className="font-semibold text-emerald-deep">{result.selectedCount} winners from {result.totalUsers}</p>
+                        <p className="font-semibold text-emerald-deep">{result.selectedCount} selected seats from {result.totalUsers}</p>
                         <p className="mt-1 text-stone-500">{formatDate(result.createdAt)}</p>
                       </div>
                     ))}
