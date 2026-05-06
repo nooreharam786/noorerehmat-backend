@@ -5,6 +5,7 @@ import { prisma } from "../config/prisma";
 import { asyncHandler, HttpError } from "../utils/http";
 import { paginationSchema } from "../utils/validation";
 import { runLuckyDraw } from "../services/draw.service";
+import { galleryImageUrl, joinGalleryUrls, requestOrigin, splitGalleryUrls } from "../utils/gallery";
 
 const sortableUsers = new Set(["name", "email", "role", "createdAt"]);
 const sortableApplicants = new Set(["createdAt", "status", "paymentStatus"]);
@@ -156,7 +157,7 @@ export const getSettings = asyncHandler(async (req, res) => {
     data: {
       imbPaymentLink: paymentLink?.value,
       resultsYoutubeUrl: resultsYoutubeUrl?.value,
-      galleryImageUrls: galleryImageUrls?.value,
+      galleryImageUrls: joinGalleryUrls(galleryImageUrls?.value),
       admin
     }
   });
@@ -186,11 +187,12 @@ export const updateSettings = asyncHandler(async (req, res) => {
   }
 
   if (req.body.galleryImageUrls !== undefined) {
+    const galleryImageUrls = joinGalleryUrls(req.body.galleryImageUrls);
     operations.push(
       prisma.setting.upsert({
         where: { key: "GALLERY_IMAGE_URLS" },
-        update: { value: req.body.galleryImageUrls },
-        create: { key: "GALLERY_IMAGE_URLS", value: req.body.galleryImageUrls }
+        update: { value: galleryImageUrls },
+        create: { key: "GALLERY_IMAGE_URLS", value: galleryImageUrls }
       })
     );
   }
@@ -213,7 +215,6 @@ export const updateSettings = asyncHandler(async (req, res) => {
 
 async function uploadedFileUrls(req: Request) {
   const files = (req.files ?? []) as Express.Multer.File[];
-  const origin = `${req.protocol}://${req.get("host")}`;
 
   const images = await Promise.all(
     files.map((file) =>
@@ -229,18 +230,11 @@ async function uploadedFileUrls(req: Request) {
     )
   );
 
-  return images.map((image) => `${origin}/uploads/gallery/${image.id}`);
-}
-
-function splitGalleryUrls(value?: string) {
-  return (value ?? "")
-    .split(/\r?\n/)
-    .map((url) => url.trim())
-    .filter(Boolean);
+  return images.map((image) => galleryImageUrl(req, image.id));
 }
 
 async function removeStoredUpload(imageUrl: string, req: Request) {
-  const origin = `${req.protocol}://${req.get("host")}`;
+  const origin = requestOrigin(req);
   if (!imageUrl.startsWith(`${origin}/uploads/gallery/`)) return;
 
   const id = new URL(imageUrl).pathname.split("/").pop();
@@ -256,7 +250,7 @@ export const uploadGalleryImages = asyncHandler(async (req, res) => {
   }
 
   const existing = await prisma.setting.findUnique({ where: { key: galleryKey } });
-  const currentValue = existing?.value?.trim();
+  const currentValue = joinGalleryUrls(existing?.value);
   const value = [currentValue, ...nextUrls].filter(Boolean).join("\n");
 
   await prisma.setting.upsert({

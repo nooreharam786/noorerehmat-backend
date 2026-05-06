@@ -16,7 +16,11 @@ const allowedOrigins = (env.CORS_ORIGINS ?? `${env.FRONTEND_URL},${env.ADMIN_URL
   .filter(Boolean);
 
 app.set("trust proxy", 1);
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+  })
+);
 app.use(
   cors({
     origin: env.NODE_ENV === "development" ? true : allowedOrigins,
