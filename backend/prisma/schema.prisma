@@ -1,0 +1,90 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  user
+  admin
+}
+
+enum ApplicationStatus {
+  pending
+  selected
+  not_selected
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  failed
+}
+
+model User {
+  id                String               @id @default(cuid())
+  name              String
+  email             String               @unique
+  password          String
+  role              Role                 @default(user)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  application       Application?
+  passwordResetTokens PasswordResetToken[]
+
+  @@index([role])
+  @@index([createdAt])
+}
+
+model Application {
+  id            String            @id @default(cuid())
+  userId        String            @unique
+  coverId       String            @unique
+  phone         String
+  stateCode     String
+  stateName     String
+  city          String
+  persons       Int               @default(1)
+  entryFee      Int               @default(1500)
+  status        ApplicationStatus @default(pending)
+  paymentStatus PaymentStatus     @default(pending)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([stateCode])
+  @@index([coverId])
+  @@index([createdAt])
+}
+
+model DrawResult {
+  id            String   @id @default(cuid())
+  totalUsers    Int
+  selectedCount Int
+  percentage    Float?
+  createdAt     DateTime @default(now())
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}

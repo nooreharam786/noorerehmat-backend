@@ -8,6 +8,7 @@
 node_modules/
 */node_modules/
 package-lock.json
+!backend/package-lock.json
 yarn.lock
 bun.lockb
 pnpm-lock.yaml
@@ -24,6 +25,8 @@ out/
 
 # Prisma
 prisma/migrations/
+!backend/prisma/migrations/
+!backend/prisma/migrations/**
 *.db
 *.db-shm
 *.db-wal
@@ -60,6 +63,7 @@ Thumbs.db
 
 # Vercel
 .vercel
+backend/.git-submodule-backup/
 
 # Testing
 .nyc_output/

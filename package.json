@@ -2,12 +2,19 @@
   "name": "sacred-journey-system",
   "version": "1.0.0",
   "private": true,
+  "workspaces": [
+    "backend"
+  ],
   "scripts": {
     "dev": "powershell -ExecutionPolicy Bypass -File scripts/dev.ps1",
-    "dev:backend": "npm.cmd --prefix backend run dev",
-    "dev:admin": "npm.cmd --prefix admin run dev",
-    "build": "npm.cmd --prefix backend run build && npm.cmd --prefix admin run build",
-    "start": "npm.cmd --prefix backend start",
-    "install:all": "npm.cmd --prefix backend install && npm.cmd --prefix admin install"
+    "dev:backend": "npm --workspace backend run dev",
+    "dev:admin": "npm --prefix admin run dev",
+    "build": "npm --workspace backend run build && npm --prefix admin run build",
+    "postinstall": "npm --workspace backend run prisma:generate",
+    "start": "npm --workspace backend start",
+    "install:all": "npm --workspace backend install && npm --prefix admin install"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
   }
 }
