@@ -23,6 +23,8 @@ admin/
     types/
 ```
 
+Deployment is managed through Vercel from this repository root.
+
 ## One-Command Development
 
 From the workspace root:
