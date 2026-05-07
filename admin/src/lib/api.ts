@@ -1,4 +1,18 @@
-const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api").replace(/\/+$/, "");
+function normalizeApiUrl(value: string) {
+  const trimmed = value.replace(/\/+$/, "");
+  try {
+    const url = new URL(trimmed);
+    if (!url.pathname || url.pathname === "/") {
+      url.pathname = "/api";
+      return url.toString().replace(/\/+$/, "");
+    }
+  } catch {
+    // Relative URLs are valid in previews; keep them as configured.
+  }
+  return trimmed;
+}
+
+const API_URL = normalizeApiUrl(process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api");
 
 type ApiResponse<T> = {
   success: boolean;
