@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { ApplicationStatus, PaymentStatus, Prisma } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { HttpError } from "../utils/http";
+import { notifyDrawSelected } from "./whatsapp.service";
 
 type DrawInput = {
   fixedCount?: number;
@@ -24,7 +25,7 @@ export async function runLuckyDraw(input: DrawInput) {
   return prisma.$transaction(async (tx) => {
     const paidApplicants = await tx.application.findMany({
       where: { paymentStatus: PaymentStatus.paid },
-      select: { id: true, persons: true }
+      select: { id: true, coverId: true, phone: true, persons: true, entryFee: true }
     });
 
     if (paidApplicants.length === 0) {
@@ -69,6 +70,9 @@ export async function runLuckyDraw(input: DrawInput) {
         percentage: usePercentage ? new Prisma.Decimal(input.percentage ?? 1.25).toNumber() : null
       }
     });
+
+    const selectedApplications = paidApplicants.filter((applicant) => selectedIds.has(applicant.id));
+    notifyDrawSelected(selectedApplications);
 
     return result;
   });

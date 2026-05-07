@@ -2,6 +2,7 @@ import { PaymentStatus } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../config/prisma";
 import { asyncHandler, HttpError } from "../utils/http";
+import { notifyApplicationSubmitted } from "../services/whatsapp.service";
 
 const entryFeePerPerson = 1500;
 
@@ -124,9 +125,14 @@ export const apply = asyncHandler(async (req, res) => {
 
     return tx.application.findUniqueOrThrow({
       where: { id: saved.id },
-      include: { travellers: { orderBy: { createdAt: "asc" } } }
+      include: {
+        user: { select: { name: true } },
+        travellers: { orderBy: { createdAt: "asc" } }
+      }
     });
   });
+
+  notifyApplicationSubmitted(application);
 
   res.status(201).json({ success: true, data: application });
 });

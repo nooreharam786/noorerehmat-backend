@@ -20,7 +20,10 @@ const envSchema = z.object({
   SMTP_PORT: z.coerce.number().optional(),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
-  SMTP_FROM: z.string().default("Sacred Journey <no-reply@sacredjourney.com>")
+  SMTP_FROM: z.string().default("Sacred Journey <no-reply@sacredjourney.com>"),
+  WHATSAPP_ACCESS_TOKEN: z.string().optional(),
+  WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
+  WHATSAPP_API_VERSION: z.string().default("v20.0")
 });
 
 export const env = envSchema.parse(process.env);

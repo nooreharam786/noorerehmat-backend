@@ -2,6 +2,7 @@ import { z } from "zod";
 import { PaymentStatus } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { asyncHandler, HttpError } from "../utils/http";
+import { notifyPaymentVerified } from "../services/whatsapp.service";
 
 export const paymentCallbackSchema = z.object({
   body: z.object({
@@ -72,8 +73,11 @@ export const paymentCallback = asyncHandler(async (req, res) => {
 
   const updated = await prisma.application.update({
     where: { id: application.id },
-    data: { paymentStatus: req.body.status }
+    data: { paymentStatus: req.body.status },
+    include: { user: { select: { name: true } } }
   });
+
+  notifyPaymentVerified(updated);
 
   res.json({ success: true, data: updated });
 });
