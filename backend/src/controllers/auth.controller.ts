@@ -116,7 +116,11 @@ export const register = asyncHandler(async (req, res) => {
 
 export const login = asyncHandler(async (req, res) => {
   const user = await prisma.user.findUnique({ where: { email: req.body.email } });
-  if (!user || !(await comparePassword(req.body.password, user.password))) {
+  if (!user) {
+    throw new HttpError(404, "No account found. Create an account now.");
+  }
+
+  if (!(await comparePassword(req.body.password, user.password))) {
     throw new HttpError(401, "Invalid email or password");
   }
 
