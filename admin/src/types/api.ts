@@ -49,6 +49,27 @@ export type Stats = {
   lastDraw: DrawResult | null;
 };
 
+export type Feedback = {
+  id: string;
+  name: string;
+  rating: number;
+  message: string;
+  location?: string | null;
+  source: string;
+  approved: boolean;
+  createdAt: string;
+};
+
+export type PublicDocument = {
+  id: string;
+  title: string;
+  description?: string | null;
+  filename: string;
+  kind: string;
+  url: string;
+  createdAt: string;
+};
+
 export type Paginated<T> = {
   items: T[];
   meta: {

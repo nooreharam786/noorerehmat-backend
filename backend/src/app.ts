@@ -5,7 +5,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 import path from "path";
 import { env } from "./config/env";
-import { serveGalleryImage } from "./controllers/gallery.controller";
+import { serveGalleryImage, servePublicDocument } from "./controllers/gallery.controller";
 import { errorHandler, notFound } from "./middleware/error";
 import { apiRoutes } from "./routes";
 
@@ -30,6 +30,7 @@ app.use(
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: false }));
 app.get("/uploads/gallery/:id", serveGalleryImage);
+app.get("/uploads/documents/:id", servePublicDocument);
 app.use(morgan(env.NODE_ENV === "production" ? "combined" : "dev"));
 app.use(
   rateLimit({

@@ -11,6 +11,10 @@ export function galleryImageUrl(req: Request, id: string) {
   return `${requestOrigin(req)}/uploads/gallery/${id}`;
 }
 
+export function publicDocumentUrl(req: Request, id: string) {
+  return `${requestOrigin(req)}/uploads/documents/${id}`;
+}
+
 export function splitGalleryUrls(value?: string) {
   return (value ?? "")
     .split(/\r?\n/)

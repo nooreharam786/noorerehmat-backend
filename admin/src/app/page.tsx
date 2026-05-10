@@ -9,13 +9,16 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  FileText,
   Gauge,
   Loader2,
   LogOut,
+  MessageSquare,
   Search,
   Settings,
   SlidersHorizontal,
   Sparkles,
+  Star,
   Trash2,
   Trophy,
   Users,
@@ -23,9 +26,9 @@ import {
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { api, clearToken, getToken, toQuery } from "@/lib/api";
-import type { Applicant, ApplicationStatus, DrawResult, Paginated, PaymentStatus, Stats, User } from "@/types/api";
+import type { Applicant, ApplicationStatus, DrawResult, Feedback, Paginated, PaymentStatus, PublicDocument, Stats, User } from "@/types/api";
 
-type Tab = "Dashboard" | "Users" | "Lucky Draw Applicants" | "Draw Control" | "Settings";
+type Tab = "Dashboard" | "Users" | "Lucky Draw Applicants" | "Draw Control" | "Feedback" | "Settings";
 type SortOrder = "asc" | "desc";
 
 const tabs: { name: Tab; icon: typeof Gauge }[] = [
@@ -33,6 +36,7 @@ const tabs: { name: Tab; icon: typeof Gauge }[] = [
   { name: "Users", icon: Users },
   { name: "Lucky Draw Applicants", icon: Trophy },
   { name: "Draw Control", icon: Sparkles },
+  { name: "Feedback", icon: MessageSquare },
   { name: "Settings", icon: Settings }
 ];
 
@@ -93,13 +97,27 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState<Paginated<User> | null>(null);
   const [applicants, setApplicants] = useState<Paginated<Applicant> | null>(null);
   const [drawHistory, setDrawHistory] = useState<DrawResult[]>([]);
+  const [feedback, setFeedback] = useState<Feedback[]>([]);
+  const [documents, setDocuments] = useState<PublicDocument[]>([]);
   const [settings, setSettings] = useState({
     imbPaymentLink: "",
     resultsYoutubeUrl: "",
     galleryImageUrls: "",
+    termsDocumentUrl: "",
+    umrahPackagePrice: 0,
+    socialFacebookUrl: "",
+    socialInstagramUrl: "",
+    socialYoutubeUrl: "",
+    socialWhatsappUrl: "",
+    contactAddress: "",
+    contactPhone: "",
+    contactEmail: "",
     adminName: "",
     adminEmail: ""
   });
+  const [newFeedback, setNewFeedback] = useState({ name: "", rating: 5, location: "", message: "" });
+  const [documentForm, setDocumentForm] = useState({ title: "", description: "", kind: "dua" });
+  const [documentFile, setDocumentFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(true);
   const [usersQuery, setUsersQuery] = useState({ page: 1, search: "", sortBy: "createdAt", sortOrder: "desc" as SortOrder });
   const [appQuery, setAppQuery] = useState({
@@ -138,15 +156,41 @@ export default function AdminDashboard() {
       imbPaymentLink?: string;
       resultsYoutubeUrl?: string;
       galleryImageUrls?: string;
+      termsDocumentUrl?: string;
+      umrahPackagePrice?: number;
+      socialFacebookUrl?: string;
+      socialInstagramUrl?: string;
+      socialYoutubeUrl?: string;
+      socialWhatsappUrl?: string;
+      contactAddress?: string;
+      contactPhone?: string;
+      contactEmail?: string;
       admin?: { name: string; email: string };
     }>("/admin/settings");
     setSettings({
       imbPaymentLink: data.imbPaymentLink ?? "",
       resultsYoutubeUrl: data.resultsYoutubeUrl ?? "",
       galleryImageUrls: data.galleryImageUrls ?? "",
+      termsDocumentUrl: data.termsDocumentUrl ?? "",
+      umrahPackagePrice: data.umrahPackagePrice ?? 0,
+      socialFacebookUrl: data.socialFacebookUrl ?? "",
+      socialInstagramUrl: data.socialInstagramUrl ?? "",
+      socialYoutubeUrl: data.socialYoutubeUrl ?? "",
+      socialWhatsappUrl: data.socialWhatsappUrl ?? "",
+      contactAddress: data.contactAddress ?? "",
+      contactPhone: data.contactPhone ?? "",
+      contactEmail: data.contactEmail ?? "",
       adminName: data.admin?.name ?? "",
       adminEmail: data.admin?.email ?? ""
     });
+  }
+
+  async function loadFeedback() {
+    setFeedback(await api<Feedback[]>("/admin/feedback"));
+  }
+
+  async function loadDocuments() {
+    setDocuments(await api<PublicDocument[]>("/admin/documents"));
   }
 
   useEffect(() => {
@@ -156,7 +200,7 @@ export default function AdminDashboard() {
     }
 
     setLoading(true);
-    Promise.all([loadDashboard(), loadUsers(), loadApplicants(), loadSettings()])
+    Promise.all([loadDashboard(), loadUsers(), loadApplicants(), loadSettings(), loadFeedback(), loadDocuments()])
       .catch((error) => {
         toast.error(error instanceof Error ? error.message : "Unable to load dashboard");
         if (error instanceof Error && error.message.toLowerCase().includes("token")) router.replace("/login");
@@ -215,6 +259,65 @@ export default function AdminDashboard() {
       toast.success("Settings updated");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to save settings");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function addFeedback(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    try {
+      await api<Feedback>("/admin/feedback", {
+        method: "POST",
+        body: JSON.stringify({ ...newFeedback, location: newFeedback.location || undefined })
+      });
+      setNewFeedback({ name: "", rating: 5, location: "", message: "" });
+      await loadFeedback();
+      toast.success("Feedback added");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to add feedback");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function uploadDocument() {
+    if (!documentFile) {
+      toast.info("Choose a PDF first");
+      return;
+    }
+    const formData = new FormData();
+    formData.append("title", documentForm.title);
+    formData.append("description", documentForm.description);
+    formData.append("kind", documentForm.kind);
+    formData.append("document", documentFile);
+
+    setSaving(true);
+    try {
+      const document = await api<PublicDocument>("/admin/documents", { method: "POST", body: formData });
+      if (document.kind === "terms") {
+        setSettings((value) => ({ ...value, termsDocumentUrl: document.url }));
+      }
+      setDocumentForm({ title: "", description: "", kind: "dua" });
+      setDocumentFile(null);
+      await loadDocuments();
+      toast.success("PDF uploaded");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to upload PDF");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteDocument(id: string) {
+    setSaving(true);
+    try {
+      await api(`/admin/documents/${id}`, { method: "DELETE" });
+      await loadDocuments();
+      toast.success("PDF removed");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to remove PDF");
     } finally {
       setSaving(false);
     }
@@ -535,9 +638,66 @@ export default function AdminDashboard() {
               </motion.section>
             )}
 
+            {activeTab === "Feedback" && (
+              <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="grid gap-6 xl:grid-cols-[380px_1fr]">
+                <form onSubmit={addFeedback} className="rounded-lg border border-stone-200 bg-white p-6 shadow-card">
+                  <h3 className="text-xl font-semibold text-emerald-deep">Add feedback</h3>
+                  <div className="mt-5 grid gap-4">
+                    <label className="grid gap-2 text-sm font-medium text-stone-700">
+                      Name
+                      <input className="input" value={newFeedback.name} onChange={(event) => setNewFeedback((value) => ({ ...value, name: event.target.value }))} required />
+                    </label>
+                    <label className="grid gap-2 text-sm font-medium text-stone-700">
+                      Stars
+                      <select className="input" value={newFeedback.rating} onChange={(event) => setNewFeedback((value) => ({ ...value, rating: Number(event.target.value) }))}>
+                        {[5, 4, 3, 2, 1].map((rating) => <option key={rating} value={rating}>{rating} stars</option>)}
+                      </select>
+                    </label>
+                    <label className="grid gap-2 text-sm font-medium text-stone-700">
+                      Location
+                      <input className="input" value={newFeedback.location} onChange={(event) => setNewFeedback((value) => ({ ...value, location: event.target.value }))} />
+                    </label>
+                    <label className="grid gap-2 text-sm font-medium text-stone-700">
+                      Feedback
+                      <textarea className="input min-h-28" value={newFeedback.message} onChange={(event) => setNewFeedback((value) => ({ ...value, message: event.target.value }))} required />
+                    </label>
+                  </div>
+                  <button className="btn-primary mt-5" disabled={saving}>
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Star className="h-4 w-4" />}
+                    Add feedback
+                  </button>
+                </form>
+
+                <TableShell title="Feedback received" action={<span className="text-sm text-stone-500">{feedback.length} total</span>}>
+                  <table className="w-full min-w-[760px] text-left text-sm">
+                    <thead className="bg-cream text-xs font-semibold text-stone-500">
+                      <tr>
+                        <th className="px-4 py-3">Name</th>
+                        <th className="px-4 py-3">Stars</th>
+                        <th className="px-4 py-3">Feedback</th>
+                        <th className="px-4 py-3">Source</th>
+                        <th className="px-4 py-3">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {feedback.map((item) => (
+                        <tr key={item.id} className="border-t border-stone-100">
+                          <td className="px-4 py-4 font-semibold text-stone-800">{item.name}</td>
+                          <td className="px-4 py-4 text-gold">{item.rating}/5</td>
+                          <td className="px-4 py-4 text-stone-600">{item.message}</td>
+                          <td className="px-4 py-4"><Badge value={item.source} /></td>
+                          <td className="px-4 py-4 text-stone-500">{formatDate(item.createdAt)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </TableShell>
+              </motion.section>
+            )}
+
             {activeTab === "Settings" && (
-              <motion.form initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} onSubmit={saveSettings} className="max-w-3xl rounded-lg border border-stone-200 bg-white p-6 shadow-card">
-                <h3 className="text-xl font-semibold text-emerald-deep">Payment, Results, and Profile Settings</h3>
+              <motion.form initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} onSubmit={saveSettings} className="max-w-5xl rounded-lg border border-stone-200 bg-white p-6 shadow-card">
+                <h3 className="text-xl font-semibold text-emerald-deep">Payment, Content, and Profile Settings</h3>
                 <div className="mt-6 grid gap-5">
                   <label className="grid gap-2 text-sm font-medium text-stone-700">
                     IMB payment link
@@ -552,6 +712,48 @@ export default function AdminDashboard() {
                       onChange={(event) => setSettings((value) => ({ ...value, resultsYoutubeUrl: event.target.value }))}
                     />
                   </label>
+                  <div className="grid gap-5 md:grid-cols-2">
+                    <label className="grid gap-2 text-sm font-medium text-stone-700">
+                      Full Umrah package price
+                      <input className="input" type="number" min={0} value={settings.umrahPackagePrice} onChange={(event) => setSettings((value) => ({ ...value, umrahPackagePrice: Number(event.target.value) }))} />
+                    </label>
+                    <label className="grid gap-2 text-sm font-medium text-stone-700">
+                      Terms PDF URL
+                      <input className="input" value={settings.termsDocumentUrl} onChange={(event) => setSettings((value) => ({ ...value, termsDocumentUrl: event.target.value }))} />
+                    </label>
+                  </div>
+                  <div className="grid gap-5 md:grid-cols-2">
+                    <label className="grid gap-2 text-sm font-medium text-stone-700">
+                      Facebook URL
+                      <input className="input" value={settings.socialFacebookUrl} onChange={(event) => setSettings((value) => ({ ...value, socialFacebookUrl: event.target.value }))} />
+                    </label>
+                    <label className="grid gap-2 text-sm font-medium text-stone-700">
+                      Instagram URL
+                      <input className="input" value={settings.socialInstagramUrl} onChange={(event) => setSettings((value) => ({ ...value, socialInstagramUrl: event.target.value }))} />
+                    </label>
+                    <label className="grid gap-2 text-sm font-medium text-stone-700">
+                      YouTube URL
+                      <input className="input" value={settings.socialYoutubeUrl} onChange={(event) => setSettings((value) => ({ ...value, socialYoutubeUrl: event.target.value }))} />
+                    </label>
+                    <label className="grid gap-2 text-sm font-medium text-stone-700">
+                      WhatsApp link
+                      <input className="input" value={settings.socialWhatsappUrl} onChange={(event) => setSettings((value) => ({ ...value, socialWhatsappUrl: event.target.value }))} />
+                    </label>
+                  </div>
+                  <div className="grid gap-5 md:grid-cols-2">
+                    <label className="grid gap-2 text-sm font-medium text-stone-700">
+                      Contact phone
+                      <input className="input" value={settings.contactPhone} onChange={(event) => setSettings((value) => ({ ...value, contactPhone: event.target.value }))} />
+                    </label>
+                    <label className="grid gap-2 text-sm font-medium text-stone-700">
+                      Contact email
+                      <input className="input" type="email" value={settings.contactEmail} onChange={(event) => setSettings((value) => ({ ...value, contactEmail: event.target.value }))} />
+                    </label>
+                    <label className="grid gap-2 text-sm font-medium text-stone-700 md:col-span-2">
+                      Address
+                      <textarea className="input min-h-24" value={settings.contactAddress} onChange={(event) => setSettings((value) => ({ ...value, contactAddress: event.target.value }))} />
+                    </label>
+                  </div>
                   <div className="grid gap-3 rounded-lg border border-stone-200 bg-cream p-4">
                     <label className="grid gap-2 text-sm font-medium text-stone-700">
                       Gallery images
@@ -580,6 +782,38 @@ export default function AdminDashboard() {
                               aria-label="Remove photo"
                             >
                               <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="grid gap-4 rounded-lg border border-stone-200 bg-cream p-4">
+                    <h4 className="font-semibold text-emerald-deep">PDF documents</h4>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <input className="input bg-white" placeholder="PDF title" value={documentForm.title} onChange={(event) => setDocumentForm((value) => ({ ...value, title: event.target.value }))} />
+                      <select className="input bg-white" value={documentForm.kind} onChange={(event) => setDocumentForm((value) => ({ ...value, kind: event.target.value }))}>
+                        <option value="dua">Dua PDF</option>
+                        <option value="terms">Terms PDF</option>
+                      </select>
+                      <input className="input bg-white md:col-span-2" placeholder="Short description" value={documentForm.description} onChange={(event) => setDocumentForm((value) => ({ ...value, description: event.target.value }))} />
+                      <input className="input bg-white md:col-span-2" type="file" accept="application/pdf" onChange={(event) => setDocumentFile(event.target.files?.[0] ?? null)} />
+                    </div>
+                    <button type="button" className="btn-secondary w-fit" onClick={uploadDocument} disabled={saving || !documentFile || !documentForm.title}>
+                      {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                      Upload PDF
+                    </button>
+                    {documents.length > 0 && (
+                      <div className="grid gap-2">
+                        {documents.map((document) => (
+                          <div key={document.id} className="flex flex-col gap-3 rounded-lg border border-stone-200 bg-white p-3 text-sm md:flex-row md:items-center md:justify-between">
+                            <div>
+                              <p className="font-semibold text-stone-800">{document.title} <span className="text-xs text-stone-400">({document.kind})</span></p>
+                              <a className="text-emerald-deep underline" href={document.url} target="_blank" rel="noreferrer">{document.filename}</a>
+                            </div>
+                            <button type="button" className="btn-secondary w-fit text-red-600" onClick={() => deleteDocument(document.id)} disabled={saving}>
+                              <Trash2 className="h-4 w-4" />
+                              Remove
                             </button>
                           </div>
                         ))}

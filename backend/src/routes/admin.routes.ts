@@ -1,11 +1,16 @@
 import { Router } from "express";
 import { authenticate, requireAdmin } from "../middleware/auth";
-import { galleryUpload } from "../middleware/upload";
+import { galleryUpload, pdfUpload } from "../middleware/upload";
 import { validate } from "../middleware/validate";
 import {
+  createFeedback,
+  createFeedbackSchema,
+  deleteDocument,
   drawHistory,
   drawSchema,
   getSettings,
+  listDocuments,
+  listFeedback,
   listApplicants,
   listApplicantsSchema,
   listUsers,
@@ -16,6 +21,8 @@ import {
   stats,
   updateSettings,
   updateSettingsSchema,
+  uploadDocument,
+  uploadDocumentSchema,
   uploadGalleryImages
 } from "../controllers/admin.controller";
 
@@ -31,3 +38,8 @@ adminRoutes.get("/settings", getSettings);
 adminRoutes.patch("/settings", validate(updateSettingsSchema), updateSettings);
 adminRoutes.post("/gallery/upload", galleryUpload.array("images", 8), uploadGalleryImages);
 adminRoutes.delete("/gallery/image", validate(removeGalleryImageSchema), removeGalleryImage);
+adminRoutes.get("/feedback", listFeedback);
+adminRoutes.post("/feedback", validate(createFeedbackSchema), createFeedback);
+adminRoutes.get("/documents", listDocuments);
+adminRoutes.post("/documents", pdfUpload.single("document"), validate(uploadDocumentSchema), uploadDocument);
+adminRoutes.delete("/documents/:id", deleteDocument);

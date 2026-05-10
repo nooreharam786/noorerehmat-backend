@@ -46,7 +46,7 @@ export const indianStates = [
 ];
 
 const stateCodes = new Set(indianStates.map((state) => state.code));
-const maxTravellersPerCover = 5;
+const maxTravellersPerCover = 1;
 
 const travellerSchema = z.object({
   fullName: z.string().trim().min(2).max(120),
@@ -58,7 +58,7 @@ export const applySchema = z.object({
     phone: z.string().trim().min(7).max(20),
     stateCode: z.string().trim().toUpperCase().refine((value) => stateCodes.has(value), "Select a valid state"),
     city: z.string().trim().min(2).max(80),
-    persons: z.coerce.number().int().min(1).max(maxTravellersPerCover),
+    persons: z.coerce.number().int().min(1).max(maxTravellersPerCover).default(1),
     travellers: z.array(travellerSchema).min(1).max(maxTravellersPerCover)
   }).superRefine((body, ctx) => {
     if (body.travellers.length !== body.persons) {

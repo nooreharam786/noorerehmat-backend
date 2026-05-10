@@ -112,3 +112,34 @@ model GalleryImage {
 
   @@index([createdAt])
 }
+
+model PublicDocument {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  filename    String
+  contentType String
+  data        Bytes
+  size        Int
+  kind        String   @default("dua")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([kind])
+  @@index([createdAt])
+}
+
+model Feedback {
+  id        String   @id @default(cuid())
+  name      String
+  rating    Int
+  message   String
+  location  String?
+  source    String   @default("public")
+  approved  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([approved])
+  @@index([createdAt])
+}

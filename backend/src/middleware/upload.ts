@@ -16,3 +16,19 @@ export const galleryUpload = multer({
     cb(null, true);
   }
 });
+
+export const pdfUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024,
+    files: 1
+  },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype !== "application/pdf") {
+      cb(new HttpError(422, "Only PDF files are allowed"));
+      return;
+    }
+
+    cb(null, true);
+  }
+});

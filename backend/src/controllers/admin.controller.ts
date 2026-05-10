@@ -5,11 +5,25 @@ import { prisma } from "../config/prisma";
 import { asyncHandler, HttpError } from "../utils/http";
 import { paginationSchema } from "../utils/validation";
 import { runLuckyDraw } from "../services/draw.service";
-import { galleryImageUrl, joinGalleryUrls, requestOrigin, splitGalleryUrls } from "../utils/gallery";
+import { galleryImageUrl, joinGalleryUrls, publicDocumentUrl, requestOrigin, splitGalleryUrls } from "../utils/gallery";
 
 const sortableUsers = new Set(["name", "email", "role", "createdAt"]);
 const sortableApplicants = new Set(["createdAt", "status", "paymentStatus"]);
 const galleryKey = "GALLERY_IMAGE_URLS";
+const settingsKeys = {
+  imbPaymentLink: "IMB_PAYMENT_LINK",
+  resultsYoutubeUrl: "RESULTS_YOUTUBE_URL",
+  galleryImageUrls: "GALLERY_IMAGE_URLS",
+  termsDocumentUrl: "TERMS_DOCUMENT_URL",
+  umrahPackagePrice: "UMRAH_PACKAGE_PRICE",
+  socialFacebookUrl: "SOCIAL_FACEBOOK_URL",
+  socialInstagramUrl: "SOCIAL_INSTAGRAM_URL",
+  socialYoutubeUrl: "SOCIAL_YOUTUBE_URL",
+  socialWhatsappUrl: "SOCIAL_WHATSAPP_URL",
+  contactAddress: "CONTACT_ADDRESS",
+  contactPhone: "CONTACT_PHONE",
+  contactEmail: "CONTACT_EMAIL"
+} as const;
 
 export const listUsersSchema = z.object({
   query: paginationSchema.extend({
@@ -34,14 +48,42 @@ export const drawSchema = z.object({
 });
 
 const optionalUrl = z.preprocess((value) => (value === "" ? undefined : value), z.string().url().optional());
+const optionalEmail = z.preprocess((value) => (value === "" ? undefined : value), z.string().trim().email().optional());
 
 export const updateSettingsSchema = z.object({
   body: z.object({
     imbPaymentLink: optionalUrl,
     resultsYoutubeUrl: optionalUrl,
     galleryImageUrls: z.string().trim().max(5000).optional(),
+    termsDocumentUrl: z.string().trim().max(1000).optional(),
+    umrahPackagePrice: z.coerce.number().int().nonnegative().max(10000000).optional(),
+    socialFacebookUrl: optionalUrl,
+    socialInstagramUrl: optionalUrl,
+    socialYoutubeUrl: optionalUrl,
+    socialWhatsappUrl: z.string().trim().max(500).optional(),
+    contactAddress: z.string().trim().max(1000).optional(),
+    contactPhone: z.string().trim().max(80).optional(),
+    contactEmail: optionalEmail,
     adminName: z.string().trim().min(2).optional(),
     adminEmail: z.string().trim().email().toLowerCase().optional()
+  })
+});
+
+export const createFeedbackSchema = z.object({
+  body: z.object({
+    name: z.string().trim().min(2).max(120),
+    rating: z.coerce.number().int().min(1).max(5),
+    message: z.string().trim().min(5).max(1000),
+    location: z.string().trim().max(120).optional(),
+    approved: z.boolean().optional()
+  })
+});
+
+export const uploadDocumentSchema = z.object({
+  body: z.object({
+    title: z.string().trim().min(2).max(160),
+    description: z.string().trim().max(500).optional(),
+    kind: z.string().trim().min(2).max(40).default("dua")
   })
 });
 
@@ -146,18 +188,26 @@ export const drawHistory = asyncHandler(async (_req, res) => {
 });
 
 export const getSettings = asyncHandler(async (req, res) => {
-  const [paymentLink, resultsYoutubeUrl, galleryImageUrls, admin] = await Promise.all([
-    prisma.setting.findUnique({ where: { key: "IMB_PAYMENT_LINK" } }),
-    prisma.setting.findUnique({ where: { key: "RESULTS_YOUTUBE_URL" } }),
-    prisma.setting.findUnique({ where: { key: "GALLERY_IMAGE_URLS" } }),
+  const [settings, admin] = await Promise.all([
+    prisma.setting.findMany({ where: { key: { in: Object.values(settingsKeys) } } }),
     prisma.user.findFirst({ where: { role: Role.admin }, select: { id: true, name: true, email: true } })
   ]);
+  const values = Object.fromEntries(settings.map((setting) => [setting.key, setting.value]));
   res.json({
     success: true,
     data: {
-      imbPaymentLink: paymentLink?.value,
-      resultsYoutubeUrl: resultsYoutubeUrl?.value,
-      galleryImageUrls: joinGalleryUrls(galleryImageUrls?.value),
+      imbPaymentLink: values.IMB_PAYMENT_LINK,
+      resultsYoutubeUrl: values.RESULTS_YOUTUBE_URL,
+      galleryImageUrls: joinGalleryUrls(values.GALLERY_IMAGE_URLS),
+      termsDocumentUrl: values.TERMS_DOCUMENT_URL,
+      umrahPackagePrice: Number(values.UMRAH_PACKAGE_PRICE ?? 0),
+      socialFacebookUrl: values.SOCIAL_FACEBOOK_URL,
+      socialInstagramUrl: values.SOCIAL_INSTAGRAM_URL,
+      socialYoutubeUrl: values.SOCIAL_YOUTUBE_URL,
+      socialWhatsappUrl: values.SOCIAL_WHATSAPP_URL,
+      contactAddress: values.CONTACT_ADDRESS,
+      contactPhone: values.CONTACT_PHONE,
+      contactEmail: values.CONTACT_EMAIL,
       admin
     }
   });
@@ -166,33 +216,14 @@ export const getSettings = asyncHandler(async (req, res) => {
 export const updateSettings = asyncHandler(async (req, res) => {
   const operations = [];
 
-  if (req.body.imbPaymentLink !== undefined) {
+  for (const [bodyKey, settingKey] of Object.entries(settingsKeys)) {
+    if (req.body[bodyKey] === undefined) continue;
+    const value = bodyKey === "galleryImageUrls" ? joinGalleryUrls(req.body[bodyKey]) : String(req.body[bodyKey] ?? "");
     operations.push(
       prisma.setting.upsert({
-        where: { key: "IMB_PAYMENT_LINK" },
-        update: { value: req.body.imbPaymentLink },
-        create: { key: "IMB_PAYMENT_LINK", value: req.body.imbPaymentLink }
-      })
-    );
-  }
-
-  if (req.body.resultsYoutubeUrl !== undefined) {
-    operations.push(
-      prisma.setting.upsert({
-        where: { key: "RESULTS_YOUTUBE_URL" },
-        update: { value: req.body.resultsYoutubeUrl },
-        create: { key: "RESULTS_YOUTUBE_URL", value: req.body.resultsYoutubeUrl }
-      })
-    );
-  }
-
-  if (req.body.galleryImageUrls !== undefined) {
-    const galleryImageUrls = joinGalleryUrls(req.body.galleryImageUrls);
-    operations.push(
-      prisma.setting.upsert({
-        where: { key: "GALLERY_IMAGE_URLS" },
-        update: { value: galleryImageUrls },
-        create: { key: "GALLERY_IMAGE_URLS", value: galleryImageUrls }
+        where: { key: settingKey },
+        update: { value },
+        create: { key: settingKey, value }
       })
     );
   }
@@ -275,4 +306,57 @@ export const removeGalleryImage = asyncHandler(async (req, res) => {
   await removeStoredUpload(req.body.imageUrl, req);
 
   res.json({ success: true, data: { galleryImageUrls: value } });
+});
+
+export const listFeedback = asyncHandler(async (_req, res) => {
+  const items = await prisma.feedback.findMany({ orderBy: { createdAt: "desc" }, take: 100 });
+  res.json({ success: true, data: items });
+});
+
+export const createFeedback = asyncHandler(async (req, res) => {
+  const feedback = await prisma.feedback.create({
+    data: {
+      name: req.body.name,
+      rating: req.body.rating,
+      message: req.body.message,
+      location: req.body.location,
+      approved: req.body.approved ?? true,
+      source: "admin"
+    }
+  });
+  res.status(201).json({ success: true, data: feedback });
+});
+
+export const listDocuments = asyncHandler(async (req, res) => {
+  const documents = await prisma.publicDocument.findMany({
+    orderBy: { createdAt: "desc" },
+    select: { id: true, title: true, description: true, filename: true, kind: true, createdAt: true }
+  });
+  res.json({ success: true, data: documents.map((document) => ({ ...document, url: publicDocumentUrl(req, document.id) })) });
+});
+
+export const uploadDocument = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    throw new HttpError(422, "Please choose a PDF to upload");
+  }
+
+  const document = await prisma.publicDocument.create({
+    data: {
+      title: req.body.title,
+      description: req.body.description,
+      kind: req.body.kind ?? "dua",
+      filename: req.file.originalname,
+      contentType: req.file.mimetype,
+      data: req.file.buffer,
+      size: req.file.size
+    },
+    select: { id: true, title: true, description: true, filename: true, kind: true, createdAt: true }
+  });
+
+  res.status(201).json({ success: true, data: { ...document, url: publicDocumentUrl(req, document.id) } });
+});
+
+export const deleteDocument = asyncHandler(async (req, res) => {
+  await prisma.publicDocument.delete({ where: { id: req.params.id } });
+  res.json({ success: true, message: "Document deleted" });
 });
