@@ -4,8 +4,10 @@ import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import morgan from "morgan";
 import path from "path";
+import { deleteFeedback } from "./controllers/admin.controller";
 import { env } from "./config/env";
 import { serveGalleryImage, servePublicDocument } from "./controllers/gallery.controller";
+import { authenticate, requireAdmin } from "./middleware/auth";
 import { errorHandler, notFound } from "./middleware/error";
 import { apiRoutes } from "./routes";
 
@@ -45,6 +47,7 @@ app.get("/", (_req, res) => {
   res.json({ success: true, data: { message: "Sacred Journey API", version: "1.0.0" } });
 });
 
+app.delete("/api/admin/feedback/:id", authenticate, requireAdmin, deleteFeedback);
 app.use("/api", apiRoutes);
 
 if (env.NODE_ENV === "production") {

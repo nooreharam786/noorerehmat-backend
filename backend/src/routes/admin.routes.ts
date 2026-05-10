@@ -6,6 +6,7 @@ import {
   createFeedback,
   createFeedbackSchema,
   deleteDocument,
+  deleteFeedback,
   drawHistory,
   drawSchema,
   getSettings,
@@ -40,6 +41,7 @@ adminRoutes.post("/gallery/upload", galleryUpload.array("images", 8), uploadGall
 adminRoutes.delete("/gallery/image", validate(removeGalleryImageSchema), removeGalleryImage);
 adminRoutes.get("/feedback", listFeedback);
 adminRoutes.post("/feedback", validate(createFeedbackSchema), createFeedback);
+adminRoutes.delete("/feedback/:id", deleteFeedback);
 adminRoutes.get("/documents", listDocuments);
 adminRoutes.post("/documents", pdfUpload.single("document"), validate(uploadDocumentSchema), uploadDocument);
 adminRoutes.delete("/documents/:id", deleteDocument);

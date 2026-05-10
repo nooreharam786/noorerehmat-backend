@@ -327,6 +327,16 @@ export const createFeedback = asyncHandler(async (req, res) => {
   res.status(201).json({ success: true, data: feedback });
 });
 
+export const deleteFeedback = asyncHandler(async (req, res) => {
+  const feedback = await prisma.feedback.findUnique({ where: { id: req.params.id }, select: { id: true } });
+  if (!feedback) {
+    throw new HttpError(404, "Feedback not found");
+  }
+
+  await prisma.feedback.delete({ where: { id: req.params.id } });
+  res.json({ success: true, message: "Feedback deleted" });
+});
+
 export const listDocuments = asyncHandler(async (req, res) => {
   const documents = await prisma.publicDocument.findMany({
     orderBy: { createdAt: "desc" },
