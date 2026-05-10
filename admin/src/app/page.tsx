@@ -58,6 +58,15 @@ function Badge({ value }: { value: string }) {
   return <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusTone[value] ?? statusTone.pending}`}>{value.replace("_", " ")}</span>;
 }
 
+function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-4 border-t border-stone-100 py-3 first:border-t-0 first:pt-0 last:pb-0">
+      <span className="text-xs font-semibold uppercase tracking-wide text-stone-400">{label}</span>
+      <span className="max-w-[68%] text-right text-sm font-medium text-stone-700">{value}</span>
+    </div>
+  );
+}
+
 function SkeletonRows({ rows = 5, cols = 4 }: { rows?: number; cols?: number }) {
   return (
     <>
@@ -76,7 +85,7 @@ function SkeletonRows({ rows = 5, cols = 4 }: { rows?: number; cols?: number }) 
 
 function Pagination({ page, pages, onPage }: { page: number; pages: number; onPage: (page: number) => void }) {
   return (
-    <div className="flex items-center justify-end gap-2 border-t border-stone-100 px-4 py-3">
+    <div className="flex items-center justify-center gap-2 border-t border-stone-100 px-4 py-3 sm:justify-end">
       <button className="btn-secondary h-9 px-3" disabled={page <= 1} onClick={() => onPage(page - 1)}>
         <ChevronLeft className="h-4 w-4" />
       </button>
@@ -282,6 +291,21 @@ export default function AdminDashboard() {
     }
   }
 
+  async function deleteFeedback(id: string) {
+    if (!window.confirm("Delete this feedback permanently?")) return;
+
+    setSaving(true);
+    try {
+      await api(`/admin/feedback/${id}`, { method: "DELETE" });
+      setFeedback((items) => items.filter((item) => item.id !== id));
+      toast.success("Feedback deleted");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to delete feedback");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function uploadDocument() {
     if (!documentFile) {
       toast.info("Choose a PDF first");
@@ -399,7 +423,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <main className="min-h-screen">
+    <main className="min-h-screen overflow-x-hidden">
       <Toaster richColors position="top-right" />
       <div className="flex min-h-screen">
         <aside className="hidden w-72 border-r border-stone-200 bg-emerald-deep p-5 text-white lg:block">
@@ -424,39 +448,39 @@ export default function AdminDashboard() {
         </aside>
 
         <section className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-20 border-b border-stone-200 bg-white/90 px-4 py-4 backdrop-blur md:px-8">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-semibold text-gold">Premium Operations</p>
-                <h2 className="text-2xl font-semibold text-emerald-deep md:text-3xl">{activeTab}</h2>
+          <header className="sticky top-0 z-20 border-b border-stone-200 bg-white/95 px-3 py-3 backdrop-blur md:px-8 md:py-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gold sm:text-sm">Premium Operations</p>
+                <h2 className="truncate text-xl font-semibold text-emerald-deep sm:text-2xl md:text-3xl">{activeTab}</h2>
               </div>
-              <button className="btn-secondary" onClick={logout}>
+              <button className="btn-secondary h-10 shrink-0 px-3 sm:h-11 sm:px-4" onClick={logout}>
                 <LogOut className="h-4 w-4" />
-                Logout
+                <span className="hidden sm:inline">Logout</span>
               </button>
             </div>
-            <div className="mt-4 flex gap-2 overflow-x-auto lg:hidden">
+            <div className="mt-3 grid grid-cols-3 gap-2 lg:hidden">
               {tabs.map((tab) => (
                 <button
                   key={tab.name}
                   onClick={() => setActiveTab(tab.name)}
-                  className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ${
+                  className={`flex min-h-12 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-center text-[11px] font-semibold leading-tight sm:text-sm ${
                     activeTab === tab.name ? "bg-emerald-deep text-white" : "bg-white text-stone-600 gold-ring"
                   }`}
                 >
-                  <tab.icon className="h-4 w-4" />
-                  {tab.name}
+                  <tab.icon className="h-4 w-4 shrink-0" />
+                  <span className="line-clamp-2">{tab.name}</span>
                 </button>
               ))}
             </div>
           </header>
 
-          <div className="p-4 md:p-8">
+          <div className="p-3 sm:p-4 md:p-8">
             {activeTab === "Dashboard" && (
               <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   {statCards.map((card) => (
-                    <div key={card.label} className="rounded-lg border border-stone-200 bg-white p-5 shadow-card">
+                    <div key={card.label} className="rounded-lg border border-stone-200 bg-white p-4 shadow-card sm:p-5">
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm text-stone-500">{card.label}</p>
@@ -488,7 +512,7 @@ export default function AdminDashboard() {
               <TableShell
                 title="Registered Users"
                 action={
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid w-full gap-2 sm:grid-cols-[minmax(220px,1fr)_160px_120px] lg:w-auto">
                     <SearchBox value={usersQuery.search} onChange={(search) => setUsersQuery((query) => ({ ...query, page: 1, search }))} />
                     <select className="input" value={usersQuery.sortBy} onChange={(event) => setUsersQuery((query) => ({ ...query, sortBy: event.target.value }))}>
                       <option value="createdAt">Created At</option>
@@ -503,7 +527,25 @@ export default function AdminDashboard() {
                   </div>
                 }
               >
-                <table className="w-full min-w-[760px] text-left text-sm">
+                <div className="grid gap-3 p-3 md:hidden">
+                  {!users ? (
+                    Array.from({ length: 4 }).map((_, index) => <div key={index} className="h-32 animate-pulse rounded-lg bg-stone-100" />)
+                  ) : (
+                    users.items.map((user) => (
+                      <article key={user.id} className="rounded-lg border border-stone-200 bg-white p-4">
+                        <div className="mb-3 flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <h4 className="truncate font-semibold text-emerald-deep">{user.name}</h4>
+                            <p className="mt-1 break-all text-sm text-stone-500">{user.email}</p>
+                          </div>
+                          <Badge value={user.role} />
+                        </div>
+                        <DetailRow label="Joined" value={formatDate(user.createdAt)} />
+                      </article>
+                    ))
+                  )}
+                </div>
+                <table className="hidden w-full min-w-[760px] text-left text-sm md:table">
                   <thead className="bg-cream text-xs font-semibold text-stone-500">
                     <tr>
                       <th className="px-4 py-3">Name</th>
@@ -531,7 +573,7 @@ export default function AdminDashboard() {
               <TableShell
                 title="Lucky Draw Applicants"
                 action={
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid w-full gap-2 sm:grid-cols-[minmax(220px,1fr)_150px_150px_auto] lg:w-auto">
                     <SearchBox value={appQuery.search} onChange={(search) => setAppQuery((query) => ({ ...query, page: 1, search }))} />
                     <select className="input" value={appQuery.status} onChange={(event) => setAppQuery((query) => ({ ...query, page: 1, status: event.target.value as ApplicationStatus | "" }))}>
                       <option value="">All status</option>
@@ -552,7 +594,43 @@ export default function AdminDashboard() {
                   </div>
                 }
               >
-                <table className="w-full min-w-[1180px] text-left text-sm">
+                <div className="grid gap-3 p-3 md:hidden">
+                  {!applicants ? (
+                    Array.from({ length: 4 }).map((_, index) => <div key={index} className="h-56 animate-pulse rounded-lg bg-stone-100" />)
+                  ) : (
+                    applicants.items.map((item) => (
+                      <article key={item.id} className="rounded-lg border border-stone-200 bg-white p-4">
+                        <div className="mb-4 flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="font-mono text-sm font-semibold text-gold">{item.coverId}</p>
+                            <h4 className="mt-1 truncate font-semibold text-emerald-deep">{item.user.name}</h4>
+                            <p className="mt-1 break-all text-xs text-stone-500">{item.user.email}</p>
+                          </div>
+                          <div className="grid gap-1 text-right">
+                            <Badge value={item.status} />
+                            <Badge value={item.paymentStatus} />
+                          </div>
+                        </div>
+                        <DetailRow label="Phone" value={item.phone} />
+                        <DetailRow label="State" value={item.stateName} />
+                        <DetailRow label="Persons" value={item.persons} />
+                        <DetailRow label="Fee" value={`Rs.${item.entryFee.toLocaleString("en-IN")}`} />
+                        <DetailRow
+                          label="Travellers"
+                          value={
+                            <span className="grid gap-1">
+                              {item.travellers.map((traveller) => (
+                                <span key={traveller.id}>{traveller.fullName}</span>
+                              ))}
+                            </span>
+                          }
+                        />
+                        <DetailRow label="Applied" value={formatDate(item.createdAt)} />
+                      </article>
+                    ))
+                  )}
+                </div>
+                <table className="hidden w-full min-w-[1180px] text-left text-sm md:table">
                   <thead className="bg-cream text-xs font-semibold text-stone-500">
                     <tr>
                       <th className="px-4 py-3">Cover ID</th>
@@ -599,7 +677,7 @@ export default function AdminDashboard() {
             {activeTab === "Draw Control" && (
               <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="grid gap-6 xl:grid-cols-[1fr_380px]">
                 <div className="rounded-lg border border-stone-200 bg-white p-6 shadow-card">
-                  <div className="mb-6 flex items-center gap-3">
+                  <div className="mb-6 flex items-start gap-3 sm:items-center">
                     <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-gold-soft text-emerald-deep">
                       <SlidersHorizontal className="h-5 w-5" />
                     </div>
@@ -640,7 +718,7 @@ export default function AdminDashboard() {
 
             {activeTab === "Feedback" && (
               <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="grid gap-6 xl:grid-cols-[380px_1fr]">
-                <form onSubmit={addFeedback} className="rounded-lg border border-stone-200 bg-white p-6 shadow-card">
+                <form onSubmit={addFeedback} className="rounded-lg border border-stone-200 bg-white p-4 shadow-card sm:p-6">
                   <h3 className="text-xl font-semibold text-emerald-deep">Add feedback</h3>
                   <div className="mt-5 grid gap-4">
                     <label className="grid gap-2 text-sm font-medium text-stone-700">
@@ -669,7 +747,32 @@ export default function AdminDashboard() {
                 </form>
 
                 <TableShell title="Feedback received" action={<span className="text-sm text-stone-500">{feedback.length} total</span>}>
-                  <table className="w-full min-w-[760px] text-left text-sm">
+                  <div className="grid gap-3 p-3 md:hidden">
+                    {feedback.length === 0 ? (
+                      <p className="rounded-lg bg-stone-50 p-4 text-sm text-stone-500">No feedback yet.</p>
+                    ) : (
+                      feedback.map((item) => (
+                        <article key={item.id} className="rounded-lg border border-stone-200 bg-white p-4">
+                          <div className="mb-3 flex items-start justify-between gap-3">
+                            <div>
+                              <h4 className="font-semibold text-emerald-deep">{item.name}</h4>
+                              <p className="text-sm text-gold">{item.rating}/5 stars</p>
+                            </div>
+                            <Badge value={item.source} />
+                          </div>
+                          <p className="text-sm leading-6 text-stone-600">{item.message}</p>
+                          <div className="mt-4 flex items-center justify-between gap-3">
+                            <p className="text-xs text-stone-400">{formatDate(item.createdAt)}</p>
+                            <button type="button" className="btn-secondary h-9 px-3 text-red-600" onClick={() => deleteFeedback(item.id)} disabled={saving}>
+                              <Trash2 className="h-4 w-4" />
+                              Delete
+                            </button>
+                          </div>
+                        </article>
+                      ))
+                    )}
+                  </div>
+                  <table className="hidden w-full min-w-[840px] text-left text-sm md:table">
                     <thead className="bg-cream text-xs font-semibold text-stone-500">
                       <tr>
                         <th className="px-4 py-3">Name</th>
@@ -677,6 +780,7 @@ export default function AdminDashboard() {
                         <th className="px-4 py-3">Feedback</th>
                         <th className="px-4 py-3">Source</th>
                         <th className="px-4 py-3">Date</th>
+                        <th className="px-4 py-3 text-right">Action</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -687,6 +791,12 @@ export default function AdminDashboard() {
                           <td className="px-4 py-4 text-stone-600">{item.message}</td>
                           <td className="px-4 py-4"><Badge value={item.source} /></td>
                           <td className="px-4 py-4 text-stone-500">{formatDate(item.createdAt)}</td>
+                          <td className="px-4 py-4 text-right">
+                            <button type="button" className="btn-secondary h-9 px-3 text-red-600" onClick={() => deleteFeedback(item.id)} disabled={saving}>
+                              <Trash2 className="h-4 w-4" />
+                              Delete
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -696,7 +806,7 @@ export default function AdminDashboard() {
             )}
 
             {activeTab === "Settings" && (
-              <motion.form initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} onSubmit={saveSettings} className="max-w-5xl rounded-lg border border-stone-200 bg-white p-6 shadow-card">
+              <motion.form initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} onSubmit={saveSettings} className="max-w-5xl rounded-lg border border-stone-200 bg-white p-4 shadow-card sm:p-6">
                 <h3 className="text-xl font-semibold text-emerald-deep">Payment, Content, and Profile Settings</h3>
                 <div className="mt-6 grid gap-5">
                   <label className="grid gap-2 text-sm font-medium text-stone-700">
@@ -862,7 +972,7 @@ export default function AdminDashboard() {
 
 function SearchBox({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return (
-    <label className="flex h-11 min-w-64 items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 focus-within:border-emerald-deep focus-within:ring-4 focus-within:ring-emerald-deep/10">
+    <label className="flex h-11 w-full min-w-0 items-center gap-2 rounded-lg border border-stone-200 bg-white px-3 focus-within:border-emerald-deep focus-within:ring-4 focus-within:ring-emerald-deep/10 sm:min-w-64">
       <Search className="h-4 w-4 text-stone-400" />
       <input className="w-full border-0 bg-transparent text-sm outline-none" placeholder="Search" value={value} onChange={(event) => onChange(event.target.value)} />
     </label>
@@ -871,9 +981,9 @@ function SearchBox({ value, onChange }: { value: string; onChange: (value: strin
 
 function TableShell({ title, action, children }: { title: string; action: React.ReactNode; children: React.ReactNode }) {
   return (
-    <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-lg border border-stone-200 bg-white shadow-card">
+    <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="overflow-hidden rounded-lg border border-stone-200 bg-white shadow-card">
       <div className="flex flex-col gap-4 border-b border-stone-100 p-4 lg:flex-row lg:items-center lg:justify-between">
-        <h3 className="text-xl font-semibold text-emerald-deep">{title}</h3>
+        <h3 className="text-lg font-semibold text-emerald-deep sm:text-xl">{title}</h3>
         {action}
       </div>
       <div className="overflow-x-auto">{children}</div>
