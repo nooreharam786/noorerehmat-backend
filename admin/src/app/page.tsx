@@ -13,6 +13,7 @@ import {
   Gauge,
   Loader2,
   LogOut,
+  Menu,
   MessageSquare,
   Search,
   Settings,
@@ -22,22 +23,24 @@ import {
   Trash2,
   Trophy,
   Users,
-  WalletCards
+  WalletCards,
+  X
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { api, clearToken, getToken, toQuery } from "@/lib/api";
+import { downloadApplicantTicket } from "@/lib/ticket-pdf";
 import type { Applicant, ApplicationStatus, DrawResult, Feedback, Paginated, PaymentStatus, PublicDocument, Stats, User } from "@/types/api";
 
 type Tab = "Dashboard" | "Users" | "Lucky Draw Applicants" | "Draw Control" | "Feedback" | "Settings";
 type SortOrder = "asc" | "desc";
 
-const tabs: { name: Tab; icon: typeof Gauge }[] = [
-  { name: "Dashboard", icon: Gauge },
-  { name: "Users", icon: Users },
-  { name: "Lucky Draw Applicants", icon: Trophy },
-  { name: "Draw Control", icon: Sparkles },
-  { name: "Feedback", icon: MessageSquare },
-  { name: "Settings", icon: Settings }
+const tabs: { name: Tab; short: string; icon: typeof Gauge }[] = [
+  { name: "Dashboard", short: "Home", icon: Gauge },
+  { name: "Users", short: "Users", icon: Users },
+  { name: "Lucky Draw Applicants", short: "Draw", icon: Trophy },
+  { name: "Draw Control", short: "Run", icon: Sparkles },
+  { name: "Feedback", short: "Reviews", icon: MessageSquare },
+  { name: "Settings", short: "Settings", icon: Settings }
 ];
 
 const statusTone: Record<string, string> = {
@@ -143,6 +146,7 @@ export default function AdminDashboard() {
   const [confirmDraw, setConfirmDraw] = useState(false);
   const [saving, setSaving] = useState(false);
   const [galleryFiles, setGalleryFiles] = useState<FileList | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   async function loadDashboard() {
     const [nextStats, history] = await Promise.all([api<Stats>("/admin/stats"), api<DrawResult[]>("/admin/draw/history")]);
@@ -392,6 +396,8 @@ export default function AdminDashboard() {
     .split(/\r?\n/)
     .map((url) => url.trim())
     .filter(Boolean);
+  const activeTabMeta = tabs.find((tab) => tab.name === activeTab) ?? tabs[0];
+  const ActiveTabIcon = activeTabMeta.icon;
 
   function exportApplicants() {
     if (!applicants?.items.length) {
@@ -448,28 +454,46 @@ export default function AdminDashboard() {
         </aside>
 
         <section className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-20 border-b border-stone-200 bg-white/95 px-3 py-3 backdrop-blur md:px-8 md:py-4">
+          <header className="sticky top-0 z-20 border-b border-emerald-light/20 bg-emerald-deep px-3 pb-4 pt-3 text-white shadow-emerald md:border-stone-200 md:bg-white/95 md:px-8 md:py-4 md:text-ink md:shadow-none md:backdrop-blur">
             <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gold sm:text-sm">Premium Operations</p>
-                <h2 className="truncate text-xl font-semibold text-emerald-deep sm:text-2xl md:text-3xl">{activeTab}</h2>
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gold text-emerald-deep shadow-gold md:hidden">
+                  <ActiveTabIcon className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gold md:text-sm">Noor-e-Haram Admin</p>
+                  <h2 className="truncate text-2xl font-semibold text-white md:text-3xl md:text-emerald-deep">{activeTab}</h2>
+                </div>
               </div>
-              <button className="btn-secondary h-10 shrink-0 px-3 sm:h-11 sm:px-4" onClick={logout}>
+              <button
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-white/10 text-white backdrop-blur transition hover:bg-white/15 md:hidden"
+                onClick={() => setMobileMenuOpen(true)}
+                aria-label="Open menu"
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+              <button className="hidden h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-gold/40 bg-white px-4 text-sm font-semibold text-emerald-deep shadow-sm transition hover:bg-gold-soft md:inline-flex" onClick={logout}>
                 <LogOut className="h-4 w-4" />
-                <span className="hidden sm:inline">Logout</span>
+                Logout
               </button>
             </div>
-            <div className="mt-3 grid grid-cols-3 gap-2 lg:hidden">
+            <div className="mt-4 rounded-lg border border-white/10 bg-white/10 p-3 text-sm text-white/85 md:hidden">
+              <div className="flex items-center justify-between gap-4">
+                <span>Managing trust operations</span>
+                <span className="rounded-full bg-gold px-3 py-1 text-xs font-bold text-emerald-deep">Live</span>
+              </div>
+            </div>
+            <div className="mt-4 hidden gap-2 overflow-x-auto md:flex lg:hidden">
               {tabs.map((tab) => (
                 <button
                   key={tab.name}
                   onClick={() => setActiveTab(tab.name)}
-                  className={`flex min-h-12 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-center text-[11px] font-semibold leading-tight sm:text-sm ${
+                  className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold ${
                     activeTab === tab.name ? "bg-emerald-deep text-white" : "bg-white text-stone-600 gold-ring"
                   }`}
                 >
                   <tab.icon className="h-4 w-4 shrink-0" />
-                  <span className="line-clamp-2">{tab.name}</span>
+                  {tab.name}
                 </button>
               ))}
             </div>
@@ -478,9 +502,10 @@ export default function AdminDashboard() {
           <div className="p-3 sm:p-4 md:p-8">
             {activeTab === "Dashboard" && (
               <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   {statCards.map((card) => (
-                    <div key={card.label} className="rounded-lg border border-stone-200 bg-white p-4 shadow-card sm:p-5">
+                    <div key={card.label} className="relative overflow-hidden rounded-xl border border-stone-200 bg-white p-4 shadow-card sm:p-5">
+                      <div className="absolute inset-x-0 top-0 h-1 bg-gold" />
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm text-stone-500">{card.label}</p>
@@ -493,7 +518,7 @@ export default function AdminDashboard() {
                     </div>
                   ))}
                 </div>
-                <div className="rounded-lg border border-stone-200 bg-white p-6 shadow-card">
+                <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-card sm:p-6">
                   <h3 className="text-xl font-semibold text-emerald-deep">Last Draw Result</h3>
                   {stats?.lastDraw ? (
                     <div className="mt-4 grid gap-4 md:grid-cols-3">
@@ -532,7 +557,7 @@ export default function AdminDashboard() {
                     Array.from({ length: 4 }).map((_, index) => <div key={index} className="h-32 animate-pulse rounded-lg bg-stone-100" />)
                   ) : (
                     users.items.map((user) => (
-                      <article key={user.id} className="rounded-lg border border-stone-200 bg-white p-4">
+                      <article key={user.id} className="admin-mobile-card">
                         <div className="mb-3 flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <h4 className="truncate font-semibold text-emerald-deep">{user.name}</h4>
@@ -599,7 +624,7 @@ export default function AdminDashboard() {
                     Array.from({ length: 4 }).map((_, index) => <div key={index} className="h-56 animate-pulse rounded-lg bg-stone-100" />)
                   ) : (
                     applicants.items.map((item) => (
-                      <article key={item.id} className="rounded-lg border border-stone-200 bg-white p-4">
+                      <article key={item.id} className="admin-mobile-card">
                         <div className="mb-4 flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="font-mono text-sm font-semibold text-gold">{item.coverId}</p>
@@ -626,11 +651,15 @@ export default function AdminDashboard() {
                           }
                         />
                         <DetailRow label="Applied" value={formatDate(item.createdAt)} />
+                        <button type="button" className="btn-secondary mt-4 w-full justify-center" onClick={() => downloadApplicantTicket(item)}>
+                          <Download className="h-4 w-4" />
+                          Ticket PDF
+                        </button>
                       </article>
                     ))
                   )}
                 </div>
-                <table className="hidden w-full min-w-[1180px] text-left text-sm md:table">
+                <table className="hidden w-full min-w-[1260px] text-left text-sm md:table">
                   <thead className="bg-cream text-xs font-semibold text-stone-500">
                     <tr>
                       <th className="px-4 py-3">Cover ID</th>
@@ -644,10 +673,11 @@ export default function AdminDashboard() {
                       <th className="px-4 py-3">Status</th>
                       <th className="px-4 py-3">Payment Status</th>
                       <th className="px-4 py-3">Applied Date</th>
+                      <th className="px-4 py-3 text-right">Ticket</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {!applicants ? <SkeletonRows cols={11} /> : applicants.items.map((item) => (
+                    {!applicants ? <SkeletonRows cols={12} /> : applicants.items.map((item) => (
                       <tr key={item.id} className="border-t border-stone-100">
                         <td className="px-4 py-4 font-mono text-sm font-semibold text-emerald-deep">{item.coverId}</td>
                         <td className="px-4 py-4 font-semibold text-stone-800">{item.user.name}</td>
@@ -666,6 +696,12 @@ export default function AdminDashboard() {
                         <td className="px-4 py-4"><Badge value={item.status} /></td>
                         <td className="px-4 py-4"><Badge value={item.paymentStatus} /></td>
                         <td className="px-4 py-4 text-stone-500">{formatDate(item.createdAt)}</td>
+                        <td className="px-4 py-4 text-right">
+                          <button type="button" className="btn-secondary h-9 px-3" onClick={() => downloadApplicantTicket(item)}>
+                            <Download className="h-4 w-4" />
+                            PDF
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -676,7 +712,7 @@ export default function AdminDashboard() {
 
             {activeTab === "Draw Control" && (
               <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="grid gap-6 xl:grid-cols-[1fr_380px]">
-                <div className="rounded-lg border border-stone-200 bg-white p-6 shadow-card">
+                <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-card sm:p-6">
                   <div className="mb-6 flex items-start gap-3 sm:items-center">
                     <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-gold-soft text-emerald-deep">
                       <SlidersHorizontal className="h-5 w-5" />
@@ -702,7 +738,7 @@ export default function AdminDashboard() {
                   </button>
                 </div>
 
-                <div className="rounded-lg border border-stone-200 bg-white p-6 shadow-card">
+                <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-card sm:p-6">
                   <h3 className="text-xl font-semibold text-emerald-deep">Recent Results</h3>
                   <div className="mt-4 space-y-3">
                     {drawHistory.length === 0 ? <p className="text-sm text-stone-500">No results yet.</p> : drawHistory.map((result) => (
@@ -718,7 +754,7 @@ export default function AdminDashboard() {
 
             {activeTab === "Feedback" && (
               <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="grid gap-6 xl:grid-cols-[380px_1fr]">
-                <form onSubmit={addFeedback} className="rounded-lg border border-stone-200 bg-white p-4 shadow-card sm:p-6">
+                <form onSubmit={addFeedback} className="rounded-xl border border-stone-200 bg-white p-4 shadow-card sm:p-6">
                   <h3 className="text-xl font-semibold text-emerald-deep">Add feedback</h3>
                   <div className="mt-5 grid gap-4">
                     <label className="grid gap-2 text-sm font-medium text-stone-700">
@@ -752,7 +788,7 @@ export default function AdminDashboard() {
                       <p className="rounded-lg bg-stone-50 p-4 text-sm text-stone-500">No feedback yet.</p>
                     ) : (
                       feedback.map((item) => (
-                        <article key={item.id} className="rounded-lg border border-stone-200 bg-white p-4">
+                        <article key={item.id} className="admin-mobile-card">
                           <div className="mb-3 flex items-start justify-between gap-3">
                             <div>
                               <h4 className="font-semibold text-emerald-deep">{item.name}</h4>
@@ -948,6 +984,69 @@ export default function AdminDashboard() {
           </div>
         </section>
       </div>
+
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 bg-emerald-deep/55 backdrop-blur-sm"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-label="Close menu"
+          />
+          <motion.aside
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", stiffness: 360, damping: 34 }}
+            className="absolute right-0 top-0 flex h-full w-[86vw] max-w-sm flex-col bg-white shadow-elevated"
+          >
+            <div className="bg-emerald-deep p-5 text-white">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-wide text-gold">Noor-e-Haram</p>
+                  <h3 className="mt-1 text-2xl font-semibold">Admin Menu</h3>
+                </div>
+                <button
+                  type="button"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/15 bg-white/10"
+                  onClick={() => setMobileMenuOpen(false)}
+                  aria-label="Close menu"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            <nav className="grid gap-2 p-4">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.name}
+                  type="button"
+                  onClick={() => {
+                    setActiveTab(tab.name);
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`flex items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold transition ${
+                    activeTab === tab.name ? "bg-emerald-deep text-white shadow-emerald" : "bg-cream text-stone-700 hover:bg-gold-soft hover:text-emerald-deep"
+                  }`}
+                >
+                  <span className={`flex h-10 w-10 items-center justify-center rounded-lg ${activeTab === tab.name ? "bg-gold text-emerald-deep" : "bg-white text-emerald-deep"}`}>
+                    <tab.icon className="h-5 w-5" />
+                  </span>
+                  <span>{tab.name}</span>
+                </button>
+              ))}
+            </nav>
+
+            <div className="mt-auto border-t border-stone-100 p-4">
+              <button className="btn-secondary w-full justify-center text-red-600" onClick={logout}>
+                <LogOut className="h-4 w-4" />
+                Logout
+              </button>
+            </div>
+          </motion.aside>
+        </div>
+      )}
 
       {confirmDraw && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-emerald-deep/40 p-4 backdrop-blur-sm">
